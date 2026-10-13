@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lumen TV</string>
+    <string name="settings">Einstellungen</string>
+    <string name="hint">OK zum Öffnen  ·  Lange drücken für Optionen</string>
+    <string name="move">Verschieben</string>
+    <string name="hide">Ausblenden</string>
+    <string name="app_info">App-Info</string>
+    <string name="uninstall">Deinstallieren</string>
+    <string name="hidden_apps">Ausgeblendete Apps…</string>
+    <string name="hidden_title">Abgehakt = bleibt ausgeblendet</string>
+    <string name="no_hidden">Keine ausgeblendeten Apps</string>
+    <string name="move_hint">Mit den Pfeiltasten verschieben – OK zum Beenden</string>
+    <string name="cant_launch">App kann nicht gestartet werden</string>
+    <string name="apply">Übernehmen</string>
+    <string name="cancel">Abbrechen</string>
+</resources>

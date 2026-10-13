@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ch.lumen.tvlauncher'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'ch.lumen.tvlauncher'
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Für den Eigengebrauch mit dem Debug-Schlüssel signiert, damit die APK direkt installierbar ist.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+// Bewusst keine Abhängigkeiten: reines Android-Framework -> winzige APK, schneller Start.
