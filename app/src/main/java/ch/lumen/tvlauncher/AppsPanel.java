@@ -21,6 +21,7 @@ final class AppsPanel extends Overlay implements TileView.Host {
         void onAppMenu(AppEntry e);
         void onWallpaperRequest();
         void onToggleTileStyle();
+        void onHomeAssistantInfo();
     }
 
     private final Callback cb;
@@ -65,6 +66,13 @@ final class AppsPanel extends Overlay implements TileView.Host {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         wlp.leftMargin = Math.round(d.sh * 0.02f);
         header.addView(wpPill, wlp);
+
+        TextView haPill = UiKit.pill(c, "Home Assistant", d);
+        haPill.setOnClickListener(v -> cb.onHomeAssistantInfo());
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hlp.leftMargin = Math.round(d.sh * 0.02f);
+        header.addView(haPill, hlp);
         content.addView(header);
 
         grid = new LinearLayout(c);

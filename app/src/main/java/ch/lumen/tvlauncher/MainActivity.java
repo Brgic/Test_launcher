@@ -33,7 +33,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity
-        implements TileView.Host, AppsPanel.Callback, WallpaperPanel.Callback {
+        implements TileView.Host, AppsPanel.Callback, WallpaperPanel.Callback,
+        NotificationCenter.Listener {
 
     private static final int REQ_PERM = 1;
     private static final int REQ_PICK = 2;
@@ -48,7 +49,7 @@ public final class MainActivity extends Activity
     private final List<AppEntry> favs = new ArrayList<>();
     private AppEntry allTile;
 
-    private LinearLayout row;
+    private LinearLayout row, notifBox;
     private TvHScrollView hscroll;
     private ImageView wpA, wpB;
     private boolean aFront = true;
@@ -58,6 +59,15 @@ public final class MainActivity extends Activity
     private AppEntry moving;
     private String focusKey;
     private boolean resumed, dirty;
+
+    private final Runnable ticker = new Runnable() {
+        @Override
+        public void run() {
+            if (NotificationCenter.expire()) renderNotifs(null);
+            else for (int i = 0; i < notifBox.getChildCount(); i++) ((NotifCard) notifBox.getChildAt(i)).updateTime();
+            ui.postDelayed(this, 30000);
+        }
+    };
 
     private final BroadcastReceiver pkgReceiver = new BroadcastReceiver() {
         @Override
@@ -81,6 +91,10 @@ public final class MainActivity extends Activity
         wpB = findViewById(R.id.wpB);
         row = findViewById(R.id.row);
         hscroll = findViewById(R.id.hscroll);
+        notifBox = findViewById(R.id.notifBox);
+        FrameLayout.LayoutParams np = (FrameLayout.LayoutParams) notifBox.getLayoutParams();
+        np.topMargin = Math.round(d.sh * 0.06f);
+        np.leftMargin = d.side;
 
         View clockBox = findViewById(R.id.clockBox);
         FrameLayout.LayoutParams cp = (FrameLayout.LayoutParams) clockBox.getLayoutParams();
@@ -114,12 +128,17 @@ public final class MainActivity extends Activity
 
         loadWallpaper();
         reload();
+        NotificationCenter.setListener(this);
+        renderNotifs(null);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         resumed = true;
+        NotificationCenter.setLauncherVisible(true);
+        ui.removeCallbacks(ticker);
+        ticker.run();
         if (dirty) {
             dirty = false;
             reload();
@@ -130,6 +149,8 @@ public final class MainActivity extends Activity
     protected void onPause() {
         super.onPause();
         resumed = false;
+        NotificationCenter.setLauncherVisible(false);
+        ui.removeCallbacks(ticker);
         if (moving != null) endMove();
     }
 
@@ -158,6 +179,8 @@ public final class MainActivity extends Activity
             unregisterReceiver(pkgReceiver);
         } catch (Exception ignored) {
         }
+        NotificationCenter.setListener(null);
+        NotificationCenter.setLauncherVisible(false);
         io.shutdownNow();
         ui.removeCallbacksAndMessages(null);
     }
@@ -463,12 +486,86 @@ public final class MainActivity extends Activity
         }
     }
 
+    // ------------------------------------------------------------ Benachrichtigungen
+
+    @Override
+    public void onNotificationsChanged(Notif added) {
+        renderNotifs(added);
+    }
+
+    private void renderNotifs(Notif added) {
+        View f = getCurrentFocus();
+        int focusedId = -1, focusedIndex = -1;
+        if (f instanceof NotifCard) {
+            focusedId = ((NotifCard) f).notif.id;
+            focusedIndex = notifBox.indexOfChild(f);
+        }
+        notifBox.removeAllViews();
+        int gap = Math.round(d.sh * 0.015f);
+        View refocus = null;
+        for (final Notif n : NotificationCenter.list()) {
+            final NotifCard card = new NotifCard(this, n, d, true);
+            card.setOnClickListener(v -> dismiss(card));
+            card.setOnLongClickListener(v -> {
+                menu(getString(R.string.notifications), new String[]{getString(R.string.clear_all)},
+                        new Runnable[]{NotificationCenter::clear});
+                return true;
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(NotifCard.width(d),
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (notifBox.getChildCount() > 0) lp.topMargin = gap;
+            notifBox.addView(card, lp);
+            if (n.id == focusedId) refocus = card;
+            if (added != null && n.id == added.id) {
+                card.setAlpha(0f);
+                card.setTranslationX(-d.sh * 0.03f);
+                card.animate().alpha(1f).translationX(0f).setDuration(260).start();
+            }
+        }
+        if (refocus != null) {
+            refocus.requestFocus();
+        } else if (focusedIndex >= 0) {
+            int n = notifBox.getChildCount();
+            if (n > 0) notifBox.getChildAt(Math.min(focusedIndex, n - 1)).requestFocus();
+            else focusRow(focusKey, 0);
+        }
+    }
+
+    private void dismiss(final NotifCard card) {
+        card.animate().alpha(0f).translationX(-d.sh * 0.04f).setDuration(160)
+                .withEndAction(() -> NotificationCenter.remove(card.notif.id)).start();
+    }
+
+    @Override
+    public void onHomeAssistantInfo() {
+        String ip = NotifyServer.localIp();
+        StringBuilder sb = new StringBuilder();
+        sb.append("IP-Adresse dieses TVs: ").append(ip == null ? "unbekannt (kein Netzwerk?)" : ip).append("\n\n");
+        sb.append("So richtest du es ein:\n");
+        sb.append("1. Home Assistant → Einstellungen → Geräte & Dienste → Integration hinzufügen\n");
+        sb.append("2. „Notifications for Android TV / Fire TV“ wählen und diese IP eingeben\n");
+        sb.append("3. In Automationen die neue Aktion notify.… verwenden (Titel, Nachricht, optional Bild)\n\n");
+        sb.append("Über anderen Apps einblenden: ")
+                .append(OverlayPopup.allowed(this) ? "aktiv" : "aus (siehe README, per ADB aktivierbar)");
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Home Assistant")
+                .setMessage(sb.toString())
+                .setPositiveButton(R.string.send_test, (dlg, w) -> {
+                    goHome();
+                    NotificationCenter.add(new Notif("Lumen TV", "Benachrichtigungen funktionieren.", null));
+                })
+                .setNegativeButton(android.R.string.ok, null)
+                .show();
+    }
+
     // ------------------------------------------------------------ Fokus & Tasten
 
     /** Verhindert, dass der Fokus aus einer offenen Ebene in die darunterliegende springt. */
     private void updateFocusBlocking() {
         boolean anyOpen = apps.isOpen() || wp.isOpen();
-        hscroll.setDescendantFocusability(anyOpen ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        int home = anyOpen ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS;
+        hscroll.setDescendantFocusability(home);
+        notifBox.setDescendantFocusability(home);
         apps.setDescendantFocusability(wp.isOpen() ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
     }
 

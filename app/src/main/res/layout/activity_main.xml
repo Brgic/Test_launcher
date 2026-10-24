@@ -59,6 +59,16 @@
             android:textColor="#B3FFFFFF" />
     </LinearLayout>
 
+    <!-- Benachrichtigungen aus Home Assistant -->
+    <LinearLayout
+        android:id="@+id/notifBox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="vertical" />
+
     <!-- Favoritenleiste -->
     <ch.lumen.tvlauncher.TvHScrollView
         android:id="@+id/hscroll"

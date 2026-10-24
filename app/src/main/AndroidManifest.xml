@@ -4,6 +4,11 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- Empfang von Home-Assistant-Benachrichtigungen im Heimnetz -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Optional: Benachrichtigung kurz über anderen Apps einblenden -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!-- Nur für die Auswahl eines eigenen Hintergrundbilds -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
@@ -23,6 +28,7 @@
     </queries>
 
     <application
+        android:name=".LumenApp"
         android:allowBackup="false"
         android:banner="@drawable/banner"
         android:icon="@drawable/ic_launcher"

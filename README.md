@@ -11,6 +11,33 @@ Schlank (keine Bibliotheken, nur Android-Framework, APK ca. 50 KB) und auf flüs
 - **Lange OK** in der App-Liste: Zu Favoriten hinzufügen/entfernen, App-Info, Deinstallieren
 - Neu installierte oder entfernte Apps erscheinen bzw. verschwinden automatisch
 
+## Benachrichtigungen aus Home Assistant
+Oben links erscheinen Nachrichten aus Home Assistant als Glaskarten (max. 4, nach 6 Stunden automatisch weg).
+Pfeil nach oben aus der Favoritenleiste wählt eine Karte, OK blendet sie aus, lange OK → „Alle löschen“.
+
+**Einrichten (einmalig):**
+1. Die IP des TVs steht in der App-Liste unter „Home Assistant“ (dort gibt es auch „Test senden“).
+2. Home Assistant → Einstellungen → Geräte & Dienste → Integration hinzufügen → **Notifications for Android TV / Fire TV** → IP eingeben.
+3. In Automationen die neue Aktion `notify.<name>` nutzen, z. B.:
+   ```yaml
+   action: notify.lumen_tv
+   data:
+     title: Haustür
+     message: Es hat geklingelt
+     data:
+       image:
+         url: http://homeassistant.local:8123/api/camera_proxy/camera.haustuer
+   ```
+   Das Bild (z. B. Kamera-Schnappschuss) wird in der Karte angezeigt.
+
+Der Launcher empfängt auf Port 7676. Alternativ geht auch JSON per POST: `{"title": "...", "message": "..."}`.
+
+**Auch über anderen Apps einblenden** (z. B. während Netflix): Der Launcher braucht dafür die Berechtigung „Über anderen Apps einblenden“. Auf den meisten TVs gibt es dafür kein Menü, daher einmalig per ADB:
+```
+adb shell appops set ch.lumen.tvlauncher SYSTEM_ALERT_WINDOW allow
+```
+Danach erscheint jede neue Nachricht 8 Sekunden lang oben links, egal welche App läuft.
+
 ## Eigenes Hintergrundbild auf den TV bringen
 Bild z. B. mit „Send Files to TV“ oder per USB-Stick auf den Fernseher kopieren. Danach in „Hintergrund“ → „Bilder vom Gerät anzeigen“ (einmalig Zugriff erlauben) oder „Datei auswählen…“.
 Das Bild wird auf Bildschirmgröße zugeschnitten und im Launcher gespeichert. Das Original kannst du danach löschen.
