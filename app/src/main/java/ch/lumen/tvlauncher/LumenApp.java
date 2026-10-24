@@ -9,5 +9,6 @@ public final class LumenApp extends Application {
         super.onCreate();
         NotificationCenter.init(this);
         NotifyServer.start(this);
+        NotifyService.start(this);
     }
 }

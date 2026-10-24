@@ -9,6 +9,11 @@
     <!-- Optional: Benachrichtigung kurz über anderen Apps einblenden -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Empfänger startet beim Hochfahren und läuft als stiller Hintergrunddienst -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <!-- Nur für die Auswahl eines eigenen Hintergrundbilds -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
@@ -57,5 +62,25 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".NotifyService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Empfängt lokale Benachrichtigungen aus Home Assistant und zeigt sie auf dem TV an" />
+        </service>
+
+        <!-- Exportiert, damit der Dienst auch per ADB gestartet werden kann:
+             am broadcast -n ch.lumen.tvlauncher/.BootReceiver -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

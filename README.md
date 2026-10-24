@@ -38,6 +38,8 @@ adb shell appops set ch.lumen.tvlauncher SYSTEM_ALERT_WINDOW allow
 ```
 Danach erscheint jede neue Nachricht 8 Sekunden lang oben links, egal welche App läuft.
 
+Der Empfänger startet automatisch beim Hochfahren des TVs und läuft als stiller Hintergrunddienst – auch wenn der TV direkt ins Live-TV startet. Von Hand (per ADB) starten: `am broadcast -n ch.lumen.tvlauncher/.BootReceiver`
+
 ## Eigenes Hintergrundbild auf den TV bringen
 Bild z. B. mit „Send Files to TV“ oder per USB-Stick auf den Fernseher kopieren. Danach in „Hintergrund“ → „Bilder vom Gerät anzeigen“ (einmalig Zugriff erlauben) oder „Datei auswählen…“.
 Das Bild wird auf Bildschirmgröße zugeschnitten und im Launcher gespeichert. Das Original kannst du danach löschen.
