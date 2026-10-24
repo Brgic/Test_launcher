@@ -8,7 +8,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 
 /**
  * Hält den Benachrichtigungs-Empfänger am Leben – auch wenn der TV ins Live-TV startet
@@ -18,9 +20,19 @@ public final class NotifyService extends Service {
     private static final String CHANNEL = "lumen_receiver";
     private static final int ID = 7676;
 
+    static final String EXTRA_BOOT = "boot";
+    /** Nach dem Hochfahren mehrmals versuchen, weil Philips das Live-TV erst nach einigen Sekunden startet. */
+    private static final long[] BOOT_ATTEMPTS_MS = {3000, 8000, 15000};
+
+    private final Handler ui = new Handler(Looper.getMainLooper());
+
     static void start(Context c) {
+        start(c, false);
+    }
+
+    static void start(Context c, boolean afterBoot) {
         try {
-            Intent i = new Intent(c, NotifyService.class);
+            Intent i = new Intent(c, NotifyService.class).putExtra(EXTRA_BOOT, afterBoot);
             if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i);
             else c.startService(i);
         } catch (Throwable ignored) {
@@ -66,7 +78,21 @@ public final class NotifyService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && intent.getBooleanExtra(EXTRA_BOOT, false)) {
+            for (long delay : BOOT_ATTEMPTS_MS) ui.postDelayed(this::bringLauncherToFront, delay);
+        }
         return START_STICKY;
+    }
+
+    /** Holt Lumen TV nach vorn, solange der Startbildschirm nicht schon sichtbar ist. */
+    private void bringLauncherToFront() {
+        if (NotificationCenter.isLauncherVisible()) return;
+        try {
+            startActivity(new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+        } catch (Throwable ignored) {
+            // ohne „Über anderen Apps einblenden“ verbietet Android den Start aus dem Hintergrund
+        }
     }
 
     @Override

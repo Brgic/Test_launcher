@@ -34,6 +34,10 @@ final class NotificationCenter {
         launcherVisible = v;
     }
 
+    static boolean isLauncherVisible() {
+        return launcherVisible;
+    }
+
     /** Neueste zuerst. */
     static List<Notif> list() {
         return new ArrayList<>(items);
