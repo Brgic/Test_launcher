@@ -1,26 +1,24 @@
 package ch.lumen.tvlauncher;
 
-import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.app.ActivityOptions;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -31,44 +29,35 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class MainActivity extends Activity implements TileView.Host {
+public final class MainActivity extends Activity
+        implements TileView.Host, AppsPanel.Callback, WallpaperPanel.Callback {
 
-    private static final int COLS = 5;
+    private static final int REQ_PERM = 1;
+    private static final int REQ_PICK = 2;
+    private static final int DEFAULT_FAVS = 5;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
-    private final DecelerateInterpolator ease = new DecelerateInterpolator(1.8f);
 
+    private Dims d;
     private AppRepo repo;
-    private List<AppEntry> all = new ArrayList<>();          // alle, in Reihenfolge, inkl. ausgeblendeter
-    private final List<AppEntry> visible = new ArrayList<>();
-    private final Map<String, TileView> tiles = new HashMap<>();
+    private List<AppEntry> all = new ArrayList<>();
+    private final List<AppEntry> favs = new ArrayList<>();
+    private AppEntry allTile;
 
-    private TvScrollView scroll;
-    private LinearLayout grid;
-    private View backdrop, shelf;
-    private ImageView bgA, bgB, heroArt;
-    private TextView title;
-    private boolean bgAFront = true;
+    private LinearLayout row;
+    private TvHScrollView hscroll;
+    private ImageView wpA, wpB;
+    private boolean aFront = true;
+    private AppsPanel apps;
+    private WallpaperPanel wp;
 
-    private int tileW, tileH, gapH, gapV, sidePad, shelfH, screenH;
-    private float radius;
-
-    private ObjectAnimator scrollAnim;
-    private AppEntry moving, shownHero, pendingHero;
+    private AppEntry moving;
     private String focusKey;
     private boolean resumed, dirty;
-
-    private final Runnable heroRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (pendingHero != null) showHero(pendingHero);
-        }
-    };
 
     private final BroadcastReceiver pkgReceiver = new BroadcastReceiver() {
         @Override
@@ -78,68 +67,41 @@ public final class MainActivity extends Activity implements TileView.Host {
         }
     };
 
-    // ---------------------------------------------------------------- Lebenszyklus
+    // ------------------------------------------------------------ Lebenszyklus
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_main);
-
-        scroll = findViewById(R.id.scroll);
-        grid = findViewById(R.id.grid);
-        backdrop = findViewById(R.id.backdrop);
-        shelf = findViewById(R.id.shelf);
-        bgA = findViewById(R.id.bgA);
-        bgB = findViewById(R.id.bgB);
-        heroArt = findViewById(R.id.heroArt);
-        title = findViewById(R.id.title);
-        TextView hint = findViewById(R.id.hint);
-        TextView clock = findViewById(R.id.clock);
-
-        // Maße relativ zum Bildschirm -> sieht auf 720p, 1080p und 4K gleich aus
-        DisplayMetrics dm = getResources().getDisplayMetrics();
-        int w = Math.max(dm.widthPixels, dm.heightPixels);
-        int h = Math.min(dm.widthPixels, dm.heightPixels);
-        screenH = h;
-        sidePad = Math.round(w * 0.06f);
-        gapH = Math.round(w * 0.024f);
-        tileW = (w - 2 * sidePad - (COLS - 1) * gapH) / COLS;
-        tileH = Math.round(tileW * 9f / 16f);
-        gapV = Math.round(tileH * 0.5f);
-        radius = tileH * 0.09f;
-        shelfH = Math.round(h * 0.58f);
-
-        shelf.getLayoutParams().height = shelfH;
-
-        FrameLayout.LayoutParams tp = (FrameLayout.LayoutParams) findViewById(R.id.shelfText).getLayoutParams();
-        tp.leftMargin = sidePad;
-        tp.bottomMargin = Math.round(tileH * 0.55f);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_PX, h * 0.062f);
-        title.setMaxWidth(Math.round(w * 0.5f));
-        hint.setTextSize(TypedValue.COMPLEX_UNIT_PX, h * 0.02f);
-
-        int heroW = Math.round(w * 0.28f);
-        FrameLayout.LayoutParams hp = (FrameLayout.LayoutParams) heroArt.getLayoutParams();
-        hp.width = heroW;
-        hp.height = heroW * 9 / 16;
-        hp.rightMargin = sidePad;
-        heroArt.setOutlineProvider(Images.rounded(radius * heroW / tileW));
-        heroArt.setElevation(tileH * 0.2f);
-
-        FrameLayout.LayoutParams cp = (FrameLayout.LayoutParams) clock.getLayoutParams();
-        cp.topMargin = Math.round(h * 0.05f);
-        cp.rightMargin = sidePad;
-        clock.setTextSize(TypedValue.COMPLEX_UNIT_PX, h * 0.032f);
-
-        grid.setPadding(0, shelfH, 0, h / 2);
-        scroll.setListener(new TvScrollView.Listener() {
-            @Override
-            public void onScroll(int y) {
-                onScrolled(y);
-            }
-        });
-
+        d = new Dims(getResources().getDisplayMetrics());
         repo = new AppRepo(this);
+
+        FrameLayout root = findViewById(R.id.root);
+        wpA = findViewById(R.id.wpA);
+        wpB = findViewById(R.id.wpB);
+        row = findViewById(R.id.row);
+        hscroll = findViewById(R.id.hscroll);
+
+        View clockBox = findViewById(R.id.clockBox);
+        FrameLayout.LayoutParams cp = (FrameLayout.LayoutParams) clockBox.getLayoutParams();
+        cp.topMargin = Math.round(d.sh * 0.06f);
+        cp.rightMargin = d.side;
+        ((TextView) findViewById(R.id.clock)).setTextSize(TypedValue.COMPLEX_UNIT_PX, d.sh * 0.075f);
+        ((TextView) findViewById(R.id.date)).setTextSize(TypedValue.COMPLEX_UNIT_PX, d.sh * 0.024f);
+
+        FrameLayout.LayoutParams hp = (FrameLayout.LayoutParams) hscroll.getLayoutParams();
+        hp.bottomMargin = Math.round(d.sh * 0.06f);
+        row.setPadding(d.side, Math.round(d.tileH * 0.2f), d.side, Math.round(d.tileH * 0.5f));
+
+        allTile = new AppEntry(AppEntry.ALL_KEY, getString(R.string.all_apps), null, false);
+        Images.renderGlass(allTile, getResources().getDrawable(R.drawable.ic_apps, null),
+                d.renderW, d.renderH, d.renderR);
+
+        apps = new AppsPanel(this, d, this);
+        apps.setTileStyleLabel(repo.isCalm());
+        wp = new WallpaperPanel(this, d, io, ui, this);
+        root.addView(apps, new FrameLayout.LayoutParams(-1, -1));
+        root.addView(wp, new FrameLayout.LayoutParams(-1, -1));
 
         IntentFilter f = new IntentFilter();
         f.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -150,6 +112,7 @@ public final class MainActivity extends Activity implements TileView.Host {
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(pkgReceiver, f, Context.RECEIVER_EXPORTED);
         else registerReceiver(pkgReceiver, f);
 
+        loadWallpaper();
         reload();
     }
 
@@ -171,10 +134,21 @@ public final class MainActivity extends Activity implements TileView.Host {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        // Nach dem Start einer App zurück auf den ruhigen Startbildschirm
+        if (apps.isOpen() || wp.isOpen()) {
+            wp.close(false);
+            apps.close(false);
+            updateFocusBlocking();
+            focusRow(focusKey, 0);
+        }
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        // Home-Taste, während der Launcher schon offen ist -> nach oben
-        if (resumed) goTop();
+        if (resumed) goHome();   // Home-Taste im Launcher
     }
 
     @Override
@@ -191,164 +165,134 @@ public final class MainActivity extends Activity implements TileView.Host {
     @Override
     public void onBackPressed() {
         if (moving != null) endMove();
-        else goTop();               // Launcher wird nie verlassen
+        else if (wp.isOpen()) closeWallpaper();
+        else if (apps.isOpen()) closeApps();
+        else focusRow(null, 0);   // Launcher wird nie verlassen
     }
 
-    // ---------------------------------------------------------------- Laden
+    private void goHome() {
+        if (moving != null) endMove();
+        wp.close(true);
+        apps.close(true);
+        updateFocusBlocking();
+        focusRow(null, 0);
+    }
+
+    // ------------------------------------------------------------ Laden
 
     private void reload() {
-        final int w = Math.round(tileW * 1.35f), h = Math.round(tileH * 1.35f);   // Reserve für Fokus-Zoom
-        final float r = radius * 1.35f;
-        io.execute(new Runnable() {
-            @Override
-            public void run() {
-                final List<AppEntry> list = repo.loadAll(w, h, r);
-                ui.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        applyApps(list);
-                    }
-                });
-            }
+        io.execute(() -> {
+            final List<AppEntry> list = repo.loadAll(d);
+            ui.post(() -> applyApps(list));
         });
     }
 
     private void applyApps(List<AppEntry> list) {
         if (isFinishing()) return;
-        String keep = focusKey;
         all = list;
-        tiles.clear();
-        shownHero = null;
-        recomputeVisible();
-        rebuildGrid();
-        focusByKey(keep, 0);
+        Map<String, AppEntry> byKey = new HashMap<>();
+        for (AppEntry e : all) byKey.put(e.key, e);
+
+        favs.clear();
+        List<String> keys = repo.getFavoriteKeys();
+        if (keys == null) {
+            for (AppEntry e : all) if (e.tv && e.isApp() && favs.size() < DEFAULT_FAVS) favs.add(e);
+            for (AppEntry e : all) if (!favs.contains(e) && e.isApp() && favs.size() < DEFAULT_FAVS) favs.add(e);
+            repo.saveFavorites(favs);
+        } else {
+            for (String k : keys) {
+                AppEntry e = byKey.get(k);
+                if (e != null) favs.add(e);
+            }
+        }
+        rebuildRow();
+        apps.setApps(all);
+        if (!apps.isOpen() && !wp.isOpen()) focusRow(focusKey, 0);
     }
 
-    private void recomputeVisible() {
-        Set<String> hidden = repo.getHidden();
-        visible.clear();
-        for (AppEntry e : all) if (!hidden.contains(e.key)) visible.add(e);
+    private void loadWallpaper() {
+        final int w = Math.min(d.sw, 1920), h = Math.min(d.sh, 1080);
+        io.execute(() -> {
+            final Bitmap b = Wallpaper.load(this, w, h);
+            final Bitmap tiny = Images.blurSmall(b);
+            ui.post(() -> {
+                final ImageView in = aFront ? wpB : wpA;
+                final ImageView out = aFront ? wpA : wpB;
+                aFront = !aFront;
+                in.animate().cancel();
+                out.animate().cancel();
+                in.setImageBitmap(b);
+                in.animate().alpha(1f).setDuration(500).start();
+                out.animate().alpha(0f).setDuration(500).withEndAction(() -> {
+                    if (out.getAlpha() == 0f) out.setImageDrawable(null);
+                }).start();
+                apps.setBackdrop(tiny);
+                wp.setBackdrop(tiny);
+            });
+        });
     }
 
-    private void rebuildGrid() {
-        grid.removeAllViews();
-        LinearLayout row = null;
-        for (int i = 0; i < visible.size(); i++) {
-            if (i % COLS == 0) {
-                row = new LinearLayout(this);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                row.setClipChildren(false);
-                row.setClipToPadding(false);
-                row.setPadding(sidePad, 0, sidePad, 0);
-                LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                if (i > 0) rp.topMargin = gapV;
-                grid.addView(row, rp);
-            }
-            AppEntry e = visible.get(i);
-            TileView t = tiles.get(e.key);
-            if (t == null) {
-                t = new TileView(this, e, tileW, tileH, radius, this);
-                tiles.put(e.key, t);
-            }
-            if (t.getParent() != null) ((ViewGroup) t.getParent()).removeView(t);
+    // ------------------------------------------------------------ Favoritenleiste
+
+    private void rebuildRow() {
+        row.removeAllViews();
+        List<AppEntry> items = new ArrayList<>(favs);
+        items.add(allTile);
+        for (int i = 0; i < items.size(); i++) {
+            TileView t = new TileView(this, items.get(i), d, false, this);
             t.index = i;
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(tileW, tileH);
-            if (i % COLS != 0) lp.leftMargin = gapH;
-            row.addView(t, lp);
+            row.addView(t, rowParams(i));
         }
     }
 
-    private void focusByKey(String key, int fallbackIndex) {
-        if (visible.isEmpty()) return;
-        TileView t = key != null ? tiles.get(key) : null;
-        if (t == null || t.getParent() == null) {
-            int i = Math.max(0, Math.min(fallbackIndex, visible.size() - 1));
-            t = tiles.get(visible.get(i).key);
+    private LinearLayout.LayoutParams rowParams(int i) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(d.tileW, d.tileH);
+        if (i > 0) lp.leftMargin = d.gap;
+        return lp;
+    }
+
+    private void focusRow(String key, int fallback) {
+        int n = row.getChildCount();
+        if (n == 0) return;
+        for (int i = 0; i < n; i++) {
+            TileView t = (TileView) row.getChildAt(i);
+            if (key != null && key.equals(t.entry.key)) {
+                t.requestFocus();
+                return;
+            }
         }
-        if (t != null) t.requestFocus();
+        row.getChildAt(Math.max(0, Math.min(fallback, n - 1))).requestFocus();
     }
-
-    private void goTop() {
-        if (!visible.isEmpty()) focusByKey(visible.get(0).key, 0);
-    }
-
-    // ---------------------------------------------------------------- Fokus, Scrollen, Top Shelf
 
     @Override
     public void onTileFocused(TileView t) {
         focusKey = t.entry.key;
-        int row = t.index / COLS;
-        int target = row == 0 ? 0
-                : Math.max(0, shelfH + row * (tileH + gapV) - Math.round(screenH * 0.32f));
-        if (scroll.getHeight() == 0 || grid.isLayoutRequested()) {
-            final int tg = target;
-            grid.post(new Runnable() {
-                @Override
-                public void run() {
-                    scroll.scrollTo(0, tg);
-                }
-            });
-        } else {
-            animateScrollTo(target);
-        }
-        pendingHero = t.entry;
-        ui.removeCallbacks(heroRunnable);
-        if (shownHero == null) showHero(t.entry);
-        else ui.postDelayed(heroRunnable, 120);   // beim schnellen Durchklicken nicht flackern
+        hscroll.ensureVisible(t, d.side);
     }
-
-    private void animateScrollTo(int target) {
-        if (scrollAnim != null) scrollAnim.cancel();
-        if (scroll.getScrollY() == target) return;
-        scrollAnim = ObjectAnimator.ofInt(scroll, "scrollY", target);
-        scrollAnim.setDuration(320);
-        scrollAnim.setInterpolator(ease);
-        scrollAnim.start();
-    }
-
-    private void onScrolled(int y) {
-        float f = Math.min(1f, y / (shelfH * 0.55f));
-        shelf.setAlpha(1f - f);
-        shelf.setTranslationY(-y * 0.35f);
-        backdrop.setAlpha(1f - 0.6f * f);
-    }
-
-    private void showHero(final AppEntry e) {
-        if (e == shownHero) return;
-        shownHero = e;
-
-        ImageView in = bgAFront ? bgB : bgA;
-        ImageView out = bgAFront ? bgA : bgB;
-        bgAFront = !bgAFront;
-        in.animate().cancel();
-        out.animate().cancel();
-        in.setImageBitmap(e.backdrop);
-        in.animate().alpha(1f).setDuration(450).start();
-        out.animate().alpha(0f).setDuration(450).start();
-
-        heroArt.animate().cancel();
-        title.animate().cancel();
-        title.animate().alpha(0f).setDuration(90).start();
-        heroArt.animate().alpha(0f).setDuration(90).withEndAction(new Runnable() {
-            @Override
-            public void run() {
-                heroArt.setImageBitmap(e.tile);
-                title.setText(e.label);
-                heroArt.animate().alpha(1f).setDuration(240).start();
-                title.animate().alpha(1f).setDuration(240).start();
-            }
-        }).start();
-    }
-
-    // ---------------------------------------------------------------- Öffnen & Optionen
 
     @Override
     public void onTileClick(TileView t) {
         if (moving != null) {
             endMove();
-            return;
+        } else if (t.entry == allTile) {
+            openApps();
+        } else {
+            launch(t);
         }
+    }
+
+    @Override
+    public void onTileLongClick(TileView t) {
+        if (moving != null) return;
+        if (t.entry == allTile) {
+            menu(allTile.label, new String[]{getString(R.string.change_wallpaper)},
+                    new Runnable[]{this::openWallpaper});
+        } else {
+            favMenu(t.entry);
+        }
+    }
+
+    private void launch(TileView t) {
         t.pulse();
         try {
             Bundle opts = ActivityOptions.makeScaleUpAnimation(t, 0, 0, t.getWidth(), t.getHeight()).toBundle();
@@ -358,75 +302,57 @@ public final class MainActivity extends Activity implements TileView.Host {
         }
     }
 
-    @Override
-    public void onTileLongClick(TileView t) {
-        if (moving == null) showMenu(t.entry);
+    // ------------------------------------------------------------ Menüs
+
+    private void favMenu(final AppEntry e) {
+        List<String> l = new ArrayList<>();
+        List<Runnable> a = new ArrayList<>();
+        l.add(getString(R.string.move));
+        a.add(() -> startMove(e));
+        l.add(getString(R.string.fav_remove));
+        a.add(() -> toggleFavorite(e));
+        addAppActions(e, l, a);
+        menu(e.label, l.toArray(new String[0]), a.toArray(new Runnable[0]));
     }
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_MENU && moving == null) {
-            View f = getCurrentFocus();
-            if (f instanceof TileView) showMenu(((TileView) f).entry);
-            return true;
-        }
-        return super.onKeyDown(keyCode, event);
+    public void onAppMenu(final AppEntry e) {
+        List<String> l = new ArrayList<>();
+        List<Runnable> a = new ArrayList<>();
+        l.add(getString(favs.contains(e) ? R.string.fav_remove : R.string.fav_add));
+        a.add(() -> toggleFavorite(e));
+        addAppActions(e, l, a);
+        menu(e.label, l.toArray(new String[0]), a.toArray(new Runnable[0]));
     }
 
-    private void showMenu(final AppEntry e) {
-        final List<String> labels = new ArrayList<>();
-        final List<Runnable> actions = new ArrayList<>();
+    private void addAppActions(final AppEntry e, List<String> l, List<Runnable> a) {
+        if (!e.isApp()) return;
+        l.add(getString(R.string.app_info));
+        a.add(() -> safeStart(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:" + e.key))));
+        l.add(getString(R.string.uninstall));
+        a.add(() -> safeStart(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + e.key))));
+    }
 
-        labels.add(getString(R.string.move));
-        actions.add(new Runnable() {
-            @Override
-            public void run() {
-                startMove(e);
-            }
-        });
-
-        if (e.isSettings()) {
-            labels.add(getString(R.string.hidden_apps));
-            actions.add(new Runnable() {
-                @Override
-                public void run() {
-                    showHiddenDialog();
-                }
-            });
-        } else {
-            labels.add(getString(R.string.hide));
-            actions.add(new Runnable() {
-                @Override
-                public void run() {
-                    hide(e);
-                }
-            });
-            labels.add(getString(R.string.app_info));
-            actions.add(new Runnable() {
-                @Override
-                public void run() {
-                    safeStart(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:" + e.key)));
-                }
-            });
-            labels.add(getString(R.string.uninstall));
-            actions.add(new Runnable() {
-                @Override
-                public void run() {
-                    safeStart(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + e.key)));
-                }
-            });
-        }
-
+    private void menu(String title, String[] labels, final Runnable[] actions) {
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle(e.label)
-                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface d, int which) {
-                        actions.get(which).run();
-                    }
-                })
+                .setTitle(title)
+                .setItems(labels, (dlg, which) -> actions[which].run())
                 .show();
+    }
+
+    private void toggleFavorite(AppEntry e) {
+        int idx = favs.indexOf(e);
+        if (idx >= 0) {
+            favs.remove(idx);
+            Toast.makeText(this, R.string.fav_removed, Toast.LENGTH_SHORT).show();
+        } else {
+            favs.add(e);
+            Toast.makeText(this, R.string.fav_added, Toast.LENGTH_SHORT).show();
+        }
+        repo.saveFavorites(favs);
+        rebuildRow();
+        if (!apps.isOpen()) focusRow(null, Math.max(0, idx));
     }
 
     private void safeStart(Intent i) {
@@ -437,104 +363,193 @@ public final class MainActivity extends Activity implements TileView.Host {
         }
     }
 
-    private void hide(AppEntry e) {
-        int idx = visible.indexOf(e);
-        Set<String> h = repo.getHidden();
-        h.add(e.key);
-        repo.setHidden(h);
-        recomputeVisible();
-        rebuildGrid();
-        focusByKey(null, idx);
+    // ------------------------------------------------------------ App-Liste
+
+    private void openApps() {
+        apps.open();
+        updateFocusBlocking();
     }
 
-    private void showHiddenDialog() {
-        Set<String> hidden = repo.getHidden();
-        final List<AppEntry> list = new ArrayList<>();
-        for (AppEntry e : all) if (hidden.contains(e.key)) list.add(e);
-        if (list.isEmpty()) {
-            Toast.makeText(this, R.string.no_hidden, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        String[] names = new String[list.size()];
-        final boolean[] checked = new boolean[list.size()];
-        for (int i = 0; i < list.size(); i++) {
-            names[i] = list.get(i).label;
-            checked[i] = true;
-        }
-        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle(R.string.hidden_title)
-                .setMultiChoiceItems(names, checked, new DialogInterface.OnMultiChoiceClickListener() {
-                    @Override
-                    public void onClick(DialogInterface d, int which, boolean isChecked) {
-                        checked[which] = isChecked;
-                    }
-                })
-                .setPositiveButton(R.string.apply, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface d, int w) {
-                        Set<String> h = repo.getHidden();
-                        for (int i = 0; i < list.size(); i++) if (!checked[i]) h.remove(list.get(i).key);
-                        repo.setHidden(h);
-                        recomputeVisible();
-                        rebuildGrid();
-                        focusByKey(focusKey, 0);
-                    }
-                })
-                .setNegativeButton(R.string.cancel, null)
-                .show();
+    private void closeApps() {
+        apps.close(true);
+        updateFocusBlocking();
+        focusRow(focusKey, 0);
     }
 
-    // ---------------------------------------------------------------- Verschiebe-Modus
+    @Override
+    public void onAppOpen(TileView t) {
+        launch(t);
+    }
+
+    @Override
+    public void onWallpaperRequest() {
+        openWallpaper();
+    }
+
+    @Override
+    public void onToggleTileStyle() {
+        boolean calm = !repo.isCalm();
+        repo.setCalm(calm);
+        apps.setTileStyleLabel(calm);
+        reload();
+    }
+
+    // ------------------------------------------------------------ Hintergrund
+
+    private void openWallpaper() {
+        wp.open();
+        updateFocusBlocking();
+    }
+
+    private void closeWallpaper() {
+        wp.close(true);
+        updateFocusBlocking();
+        if (apps.isOpen()) apps.focusLast();
+        else focusRow(focusKey, 0);
+    }
+
+    @Override
+    public void onPresetChosen(int index) {
+        Wallpaper.setPreset(this, index);
+        loadWallpaper();
+        goHome();
+    }
+
+    @Override
+    public void onImageChosen(final Uri uri) {
+        final int w = Math.min(d.sw, 1920), h = Math.min(d.sh, 1080);
+        io.execute(() -> {
+            final boolean ok = Wallpaper.setCustom(this, uri, w, h);
+            ui.post(() -> {
+                if (ok) {
+                    loadWallpaper();
+                    goHome();
+                } else {
+                    Toast.makeText(this, R.string.wallpaper_failed, Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+    }
+
+    @Override
+    public void onNeedImagePermission() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            requestPermissions(new String[]{WallpaperPanel.imagePermission()}, REQ_PERM);
+        }
+    }
+
+    @Override
+    public void onSystemPicker() {
+        try {
+            startActivityForResult(WallpaperPanel.pickIntent(), REQ_PICK);
+        } catch (Exception ex) {
+            Toast.makeText(this, R.string.cant_launch, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(code, perms, results);
+        if (code == REQ_PERM) {
+            wp.onPermissionResult(results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == REQ_PICK && result == RESULT_OK && data != null && data.getData() != null) {
+            onImageChosen(data.getData());
+        }
+    }
+
+    // ------------------------------------------------------------ Fokus & Tasten
+
+    /** Verhindert, dass der Fokus aus einer offenen Ebene in die darunterliegende springt. */
+    private void updateFocusBlocking() {
+        boolean anyOpen = apps.isOpen() || wp.isOpen();
+        hscroll.setDescendantFocusability(anyOpen ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        apps.setDescendantFocusability(wp.isOpen() ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU && moving == null) {
+            View f = getCurrentFocus();
+            if (f instanceof TileView) f.performLongClick();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
 
     private void startMove(AppEntry e) {
-        TileView t = tiles.get(e.key);
-        if (t == null) return;
+        int i = favs.indexOf(e);
+        if (i < 0) return;
         moving = e;
+        TileView t = (TileView) row.getChildAt(i);
         t.requestFocus();
         t.startWiggle();
         Toast.makeText(this, R.string.move_hint, Toast.LENGTH_LONG).show();
     }
 
     private void endMove() {
-        TileView t = tiles.get(moving.key);
-        if (t != null) t.stopWiggle();
+        int i = favs.indexOf(moving);
+        if (i >= 0) ((TileView) row.getChildAt(i)).stopWiggle();
         moving = null;
-        List<AppEntry> merged = new ArrayList<>(visible);
-        for (AppEntry e : all) if (!merged.contains(e)) merged.add(e);
-        all = merged;
-        repo.saveOrder(all);
+        repo.saveFavorites(favs);
+    }
+
+    private void moveFav(int from, int to) {
+        AppEntry e = favs.remove(from);
+        favs.add(to, e);
+        View v = row.getChildAt(from);
+        row.removeViewAt(from);
+        row.addView(v, to);
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View c = row.getChildAt(i);
+            c.setLayoutParams(rowParams(i));
+            ((TileView) c).index = i;
+        }
+        v.requestFocus();
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent ev) {
-        if (moving == null) return super.dispatchKeyEvent(ev);
         int k = ev.getKeyCode();
-        int idx = visible.indexOf(moving);
-        int to;
-        switch (k) {
-            case KeyEvent.KEYCODE_DPAD_LEFT:  to = idx - 1; break;
-            case KeyEvent.KEYCODE_DPAD_RIGHT: to = idx + 1; break;
-            case KeyEvent.KEYCODE_DPAD_UP:    to = idx - COLS; break;
-            case KeyEvent.KEYCODE_DPAD_DOWN:  to = idx + COLS; break;
-            case KeyEvent.KEYCODE_DPAD_CENTER:
-            case KeyEvent.KEYCODE_ENTER:
-            case KeyEvent.KEYCODE_NUMPAD_ENTER:
-            case KeyEvent.KEYCODE_BUTTON_A:
-            case KeyEvent.KEYCODE_BACK:
-            case KeyEvent.KEYCODE_ESCAPE:
-                if (ev.getAction() == KeyEvent.ACTION_UP) endMove();
-                return true;
-            default:
-                return super.dispatchKeyEvent(ev);   // z. B. Lautstärke
+        if (moving != null) {
+            int idx = favs.indexOf(moving);
+            switch (k) {
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    if (ev.getAction() == KeyEvent.ACTION_DOWN) {
+                        int to = idx + (k == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+                        if (to >= 0 && to < favs.size()) moveFav(idx, to);
+                    }
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_UP:
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                case KeyEvent.KEYCODE_BUTTON_A:
+                case KeyEvent.KEYCODE_BACK:
+                case KeyEvent.KEYCODE_ESCAPE:
+                    if (ev.getAction() == KeyEvent.ACTION_UP) endMove();
+                    return true;
+                default:
+                    return super.dispatchKeyEvent(ev);
+            }
         }
-        if (ev.getAction() != KeyEvent.ACTION_DOWN) return true;
-        to = Math.max(0, Math.min(to, visible.size() - 1));
-        if (to == idx) return true;
-        visible.remove(idx);
-        visible.add(to, moving);
-        rebuildGrid();
-        TileView t = tiles.get(moving.key);
-        if (t != null) t.requestFocus();
-        return true;
+        // Auf dem Startbildschirm: Pfeil nach unten öffnet die App-Liste
+        if (k == KeyEvent.KEYCODE_DPAD_DOWN && ev.getAction() == KeyEvent.ACTION_DOWN
+                && !apps.isOpen() && !wp.isOpen()) {
+            View f = getCurrentFocus();
+            if (f != null && f.getParent() == row) {
+                openApps();
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(ev);
     }
 }

@@ -4,35 +4,80 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Outline;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewOutlineProvider;
 
-/** Rendert Kacheln einmalig vorab, damit beim Scrollen nur noch Bitmaps gezeichnet werden. */
+/** Rendert Kacheln einmalig vorab, damit beim Scrollen nur fertige Bitmaps gezeichnet werden. */
 final class Images {
-    private static final int GRAPHITE = 0xFF3A3A3C;
+    static final int GRAPHITE = 0xFF2C2C2E;
 
     private Images() {}
 
-    /** Füllt e.tile und e.backdrop. */
-    static void render(AppEntry e, Drawable banner, Drawable icon, int w, int h, float radius) {
+    /** App-Kachel: TV-Banner, sonst Icon auf einem Verlauf in der Icon-Farbe. */
+    static void render(AppEntry e, Drawable banner, Drawable icon, int w, int h, float r) {
         Bitmap raw = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(raw);
-        if (banner != null) {
-            drawBanner(c, banner, w, h);
-        } else if (icon != null) {
-            drawIconTile(c, icon, w, h);
-        } else {
-            c.drawColor(GRAPHITE);
-        }
-        e.backdrop = blur(raw);
-        e.tile = round(raw, radius);
+        if (banner != null) drawBanner(c, banner, w, h);
+        else if (icon != null) drawIconTile(c, icon, w, h);
+        else c.drawColor(GRAPHITE);
+        e.tile = round(raw, r);
         raw.recycle();
+    }
+
+    /** Durchscheinende „Glas“-Kachel mit weißem Symbol (für „Alle Apps“). */
+    static void renderGlass(AppEntry e, Drawable icon, int w, int h, float r) {
+        Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(0x38FFFFFF);
+        RectF rect = new RectF(0, 0, w, h);
+        c.drawRoundRect(rect, r, r, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1f, h * 0.008f));
+        p.setColor(0x33FFFFFF);
+        float in = p.getStrokeWidth() / 2f;
+        c.drawRoundRect(new RectF(in, in, w - in, h - in), r, r, p);
+        int size = Math.round(h * 0.34f);
+        int l = (w - size) / 2, t = (h - size) / 2;
+        icon.setColorFilter(new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN));
+        icon.setBounds(l, t, l + size, t + size);
+        icon.draw(c);
+        e.tile = b;
+    }
+
+    /** Dezenter Stil: Glaskachel mit leicht entsättigtem App-Icon. */
+    static void renderCalm(AppEntry e, Drawable icon, int w, int h, float r) {
+        Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(0x2EFFFFFF);
+        c.drawRoundRect(new RectF(0, 0, w, h), r, r, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(Math.max(1f, h * 0.008f));
+        p.setColor(0x26FFFFFF);
+        float in = p.getStrokeWidth() / 2f;
+        c.drawRoundRect(new RectF(in, in, w - in, h - in), r, r, p);
+        if (icon != null) {
+            ColorMatrix cm = new ColorMatrix();
+            cm.setSaturation(0.45f);
+            icon.setColorFilter(new ColorMatrixColorFilter(cm));
+            int size = Math.round(h * 0.5f);
+            int l = (w - size) / 2, t = (h - size) / 2;
+            icon.setBounds(l, t, l + size, t + size);
+            icon.draw(c);
+        }
+        e.tile = b;
     }
 
     private static void drawBanner(Canvas c, Drawable d, int w, int h) {
@@ -49,19 +94,18 @@ final class Images {
         d.draw(c);
     }
 
-    /** Apps ohne TV-Banner: Icon mittig auf einem Verlauf in der Icon-Farbe (wie bei Apple TV). */
     private static void drawIconTile(Canvas c, Drawable icon, int w, int h) {
         int base = dominantColor(icon);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setShader(new LinearGradient(0, 0, 0, h, shade(base, 1.15f), shade(base, 0.72f), Shader.TileMode.CLAMP));
+        p.setShader(new LinearGradient(0, 0, 0, h, shade(base, 1.12f), shade(base, 0.78f), Shader.TileMode.CLAMP));
         c.drawRect(0, 0, w, h, p);
-        int size = Math.round(h * 0.6f);
+        int size = Math.round(h * 0.56f);
         int l = (w - size) / 2, t = (h - size) / 2;
         icon.setBounds(l, t, l + size, t + size);
         icon.draw(c);
     }
 
-    private static Bitmap round(Bitmap src, float r) {
+    static Bitmap round(Bitmap src, float r) {
         Bitmap out = Bitmap.createBitmap(src.getWidth(), src.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(out);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -70,14 +114,38 @@ final class Images {
         return out;
     }
 
-    /** Günstige "Unschärfe": stark verkleinern, dann gefiltert wieder vergrößern. */
-    private static Bitmap blur(Bitmap src) {
-        Bitmap tiny = Bitmap.createScaledBitmap(src, 16, 9, true);
-        Bitmap mid = Bitmap.createScaledBitmap(tiny, 48, 27, true);
-        Bitmap out = Bitmap.createScaledBitmap(mid, 160, 90, true);
-        tiny.recycle();
-        mid.recycle();
+    /** Bild auf w×h zuschneiden (wie centerCrop). */
+    static Bitmap centerCrop(Bitmap src, int w, int h) {
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        float s = Math.max(w / (float) src.getWidth(), h / (float) src.getHeight());
+        Matrix m = new Matrix();
+        m.setScale(s, s);
+        m.postTranslate((w - src.getWidth() * s) / 2f, (h - src.getHeight() * s) / 2f);
+        new Canvas(out).drawBitmap(src, m, new Paint(Paint.FILTER_BITMAP_FLAG));
         return out;
+    }
+
+    static Bitmap roundCrop(Bitmap src, int w, int h, float r) {
+        Bitmap c = centerCrop(src, w, h);
+        Bitmap out = round(c, r);
+        c.recycle();
+        return out;
+    }
+
+    /** Günstige Unschärfe: stark verkleinern; die ImageView skaliert gefiltert wieder hoch. */
+    static Bitmap blurSmall(Bitmap src) {
+        Bitmap a = Bitmap.createScaledBitmap(src, 32, 18, true);
+        Bitmap b = Bitmap.createScaledBitmap(a, 96, 54, true);
+        a.recycle();
+        return b;
+    }
+
+    static Bitmap solid(int w, int h, float r, int color) {
+        Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(color);
+        new Canvas(b).drawRoundRect(new RectF(0, 0, w, h), r, r, p);
+        return b;
     }
 
     private static int dominantColor(Drawable d) {
@@ -100,9 +168,9 @@ final class Images {
         if (n == 0) return GRAPHITE;
         float[] hsv = new float[3];
         Color.colorToHSV(Color.rgb((int) (r / n), (int) (g / n), (int) (bl / n)), hsv);
-        if (hsv[1] < 0.15f) return GRAPHITE;       // Grau/Weiß -> edles Graphit
-        hsv[1] = Math.min(hsv[1], 0.75f);
-        hsv[2] = Math.max(0.35f, Math.min(hsv[2], 0.7f));
+        if (hsv[1] < 0.15f) return GRAPHITE;
+        hsv[1] = Math.min(hsv[1], 0.7f);
+        hsv[2] = Math.max(0.32f, Math.min(hsv[2], 0.62f));
         return Color.HSVToColor(hsv);
     }
 

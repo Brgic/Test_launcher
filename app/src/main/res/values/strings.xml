@@ -2,16 +2,25 @@
 <resources>
     <string name="app_name">Lumen TV</string>
     <string name="settings">Einstellungen</string>
-    <string name="hint">OK zum Öffnen  ·  Lange drücken für Optionen</string>
+    <string name="all_apps">Alle Apps</string>
+    <string name="apps">Apps</string>
+    <string name="wallpaper">Hintergrund</string>
+    <string name="change_wallpaper">Hintergrund ändern</string>
+    <string name="presets">Vorlagen</string>
+    <string name="own_images">Eigene Bilder</string>
+    <string name="show_device_images">Bilder vom Gerät anzeigen</string>
+    <string name="refresh">Aktualisieren</string>
+    <string name="pick_file">Datei auswählen…</string>
+    <string name="no_images">Keine Bilder gefunden. Tipp: Bilder z. B. mit „Send Files to TV“ auf den Fernseher schicken.</string>
+    <string name="no_permission">Ohne Zugriff auf Bilder geht nur „Datei auswählen…“ oder eine Vorlage.</string>
+    <string name="wallpaper_failed">Bild konnte nicht geladen werden</string>
     <string name="move">Verschieben</string>
-    <string name="hide">Ausblenden</string>
+    <string name="move_hint">Mit links/rechts verschieben – OK zum Beenden</string>
+    <string name="fav_add">Zu Favoriten hinzufügen</string>
+    <string name="fav_remove">Aus Favoriten entfernen</string>
+    <string name="fav_added">Zu Favoriten hinzugefügt</string>
+    <string name="fav_removed">Aus Favoriten entfernt</string>
     <string name="app_info">App-Info</string>
     <string name="uninstall">Deinstallieren</string>
-    <string name="hidden_apps">Ausgeblendete Apps…</string>
-    <string name="hidden_title">Abgehakt = bleibt ausgeblendet</string>
-    <string name="no_hidden">Keine ausgeblendeten Apps</string>
-    <string name="move_hint">Mit den Pfeiltasten verschieben – OK zum Beenden</string>
     <string name="cant_launch">App kann nicht gestartet werden</string>
-    <string name="apply">Übernehmen</string>
-    <string name="cancel">Abbrechen</string>
 </resources>

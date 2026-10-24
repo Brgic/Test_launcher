@@ -3,23 +3,25 @@ package ch.lumen.tvlauncher;
 import android.content.Intent;
 import android.graphics.Bitmap;
 
-/** Eine Kachel: App (oder die Einstellungen) mit vorgerenderten Bitmaps. */
+/** Eine Kachel: App, Einstellungen, „Alle Apps“ oder ein Hintergrundbild. */
 final class AppEntry {
     static final String SETTINGS_KEY = "__settings";
+    static final String ALL_KEY = "__all";
 
-    final String key;      // Paketname bzw. SETTINGS_KEY
+    final String key;
     final String label;
     final Intent intent;
-    Bitmap tile;           // abgerundete 16:9-Kachel
-    Bitmap backdrop;       // stark verkleinert -> wirkt hochskaliert unscharf
+    final boolean tv;      // hat einen TV-Launcher-Eintrag
+    Bitmap tile;
 
-    AppEntry(String key, String label, Intent intent) {
+    AppEntry(String key, String label, Intent intent, boolean tv) {
         this.key = key;
         this.label = label;
         this.intent = intent;
+        this.tv = tv;
     }
 
-    boolean isSettings() {
-        return SETTINGS_KEY.equals(key);
+    boolean isApp() {
+        return intent != null && !SETTINGS_KEY.equals(key);
     }
 }

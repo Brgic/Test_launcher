@@ -1,103 +1,82 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FF000000">
 
-    <!-- Unscharfer, farbiger Hintergrund (Top Shelf) -->
-    <FrameLayout
-        android:id="@+id/backdrop"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <ImageView
-            android:id="@+id/bgA"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:importantForAccessibility="no"
-            android:scaleType="centerCrop" />
-
-        <ImageView
-            android:id="@+id/bgB"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:alpha="0"
-            android:importantForAccessibility="no"
-            android:scaleType="centerCrop" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/scrim" />
-    </FrameLayout>
-
-    <!-- Top Shelf: Titel + großes Banner der fokussierten App -->
-    <FrameLayout
-        android:id="@+id/shelf"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <LinearLayout
-            android:id="@+id/shelfText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|start"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:fontFamily="sans-serif-medium"
-                android:maxLines="1"
-                android:textColor="#FFFFFFFF" />
-
-            <TextView
-                android:id="@+id/hint"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:fontFamily="sans-serif"
-                android:text="@string/hint"
-                android:textColor="#99FFFFFF" />
-        </LinearLayout>
-
-        <ImageView
-            android:id="@+id/heroArt"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical|end"
-            android:importantForAccessibility="no"
-            android:scaleType="fitXY" />
-    </FrameLayout>
-
-    <!-- App-Raster -->
-    <ch.lumen.tvlauncher.TvScrollView
-        android:id="@+id/scroll"
+    <!-- Hintergrundbild (zwei Ebenen für weiches Überblenden) -->
+    <ImageView
+        android:id="@+id/wpA"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <ImageView
+        android:id="@+id/wpB"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <View
+        android:id="@+id/scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/home_scrim" />
+
+    <!-- Uhr + Datum -->
+    <LinearLayout
+        android:id="@+id/clockBox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <TextClock
+            android:id="@+id/clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-light"
+            android:format12Hour="HH:mm"
+            android:format24Hour="HH:mm"
+            android:shadowColor="#66000000"
+            android:shadowRadius="12"
+            android:textColor="#FFFFFFFF" />
+
+        <TextClock
+            android:id="@+id/date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif"
+            android:format12Hour="EEEE, d. MMMM"
+            android:format24Hour="EEEE, d. MMMM"
+            android:shadowColor="#66000000"
+            android:shadowRadius="10"
+            android:textColor="#B3FFFFFF" />
+    </LinearLayout>
+
+    <!-- Favoritenleiste -->
+    <ch.lumen.tvlauncher.TvHScrollView
+        android:id="@+id/hscroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
         android:clipChildren="false"
+        android:clipToPadding="false"
         android:focusable="false"
         android:overScrollMode="never"
         android:scrollbars="none">
 
         <LinearLayout
-            android:id="@+id/grid"
-            android:layout_width="match_parent"
+            android:id="@+id/row"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:clipChildren="false"
             android:clipToPadding="false"
-            android:orientation="vertical" />
-    </ch.lumen.tvlauncher.TvScrollView>
-
-    <TextClock
-        android:id="@+id/clock"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:fontFamily="sans-serif-light"
-        android:format12Hour="HH:mm"
-        android:format24Hour="HH:mm"
-        android:textColor="#E6FFFFFF" />
+            android:orientation="horizontal" />
+    </ch.lumen.tvlauncher.TvHScrollView>
 </FrameLayout>

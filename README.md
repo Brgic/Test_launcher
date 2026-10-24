@@ -3,21 +3,22 @@
 Schlank (keine Bibliotheken, nur Android-Framework, APK ca. 50 KB) und auf flüssige Bewegung getrimmt.
 
 ## Was er kann
-- **Top Shelf** wie beim Apple TV: großes Banner und Name der fokussierten App, dahinter ein weich verschwommener Farbhintergrund, der beim Wechsel überblendet
-- **Kachelraster** mit 5 Spalten, abgerundete 16:9-Kacheln; bei Fokus Zoom mit Schatten, der App-Name erscheint darunter
-- Beim Runterscrollen gleitet der Top Shelf mit leichtem Parallax-Effekt weg
-- Uhr oben rechts
-- TV-Apps zeigen ihr offizielles Banner; Handy-Apps bekommen eine Kachel mit Icon auf einem Verlauf in der Icon-Farbe
-- **Lange OK drücken** (oder Menü-Taste) auf einer Kachel: Verschieben (Kachel wackelt, mit Pfeilen bewegen, OK beendet), Ausblenden, App-Info, Deinstallieren
-- Auf der Kachel **Einstellungen**: lange drücken → ausgeblendete Apps wieder einblenden
+- **Ruhiger Startbildschirm:** dein Hintergrund, Uhr mit Datum oben rechts und unten eine einzige Leiste mit deinen Favoriten
+- **Alle Apps** als letzte Kachel der Leiste (oder Pfeil nach unten): separate Liste mit Milchglas-Effekt
+- **Kachelstil:** „Dezent“ (Glaskacheln, gedämpfte Icons; Standard) oder „Farbig“ (offizielle TV-Banner). Umschalten oben in der App-Liste
+- **Hintergrund:** 7 Farbverlauf-Vorlagen oder eigene Bilder vom Gerät. Öffnen über „Hintergrund“ in der App-Liste oder lange OK auf „Alle Apps“
+- **Lange OK** (oder Menü-Taste) auf einer Favoriten-Kachel: Verschieben, Aus Favoriten entfernen, App-Info, Deinstallieren
+- **Lange OK** in der App-Liste: Zu Favoriten hinzufügen/entfernen, App-Info, Deinstallieren
 - Neu installierte oder entfernte Apps erscheinen bzw. verschwinden automatisch
-- Home- oder Zurück-Taste springt an den Anfang
+
+## Eigenes Hintergrundbild auf den TV bringen
+Bild z. B. mit „Send Files to TV“ oder per USB-Stick auf den Fernseher kopieren. Danach in „Hintergrund“ → „Bilder vom Gerät anzeigen“ (einmalig Zugriff erlauben) oder „Datei auswählen…“.
+Das Bild wird auf Bildschirmgröße zugeschnitten und im Launcher gespeichert. Das Original kannst du danach löschen.
 
 ## Warum er flüssig läuft
-- Alle Kacheln werden einmal im Hintergrund vorgerendert (inkl. Rundung) – beim Scrollen werden nur fertige Bilder gezeichnet
+- Alle Kacheln werden einmal im Hintergrund vorgerendert. Beim Scrollen werden nur fertige Bilder gezeichnet
 - Animationen laufen über die GPU (Scale, Alpha, Translation), kein Neu-Layout beim Fokuswechsel
 - Unschärfe ohne teure Filter: Bild wird winzig verkleinert und gefiltert hochskaliert
-- Hintergrundwechsel wird beim schnellen Durchklicken entprellt
 
 ## APK bauen
 
@@ -42,6 +43,7 @@ Ordner öffnen → *Build → Build App Bundle(s)/APK(s) → Build APK(s)*.
     Rückgängig: `adb shell pm enable com.google.android.apps.tv.launcherx`
 
 ## Anpassen
-- Spaltenzahl: `COLS` in `MainActivity.java`
+- Spaltenzahl der App-Liste: `COLS` in `Dims.java`
 - Zoomstärke: `FOCUS_SCALE` in `TileView.java`
-- Farben des Verlaufs: `res/drawable/scrim.xml`
+- Hintergrund-Vorlagen: `Wallpaper.java`
+- Entsättigung im dezenten Stil: `setSaturation` in `Images.java`

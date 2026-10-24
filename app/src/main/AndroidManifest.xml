@@ -4,6 +4,12 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- Nur für die Auswahl eines eigenen Hintergrundbilds -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <!-- Paketsichtbarkeit (Android 11+): alle startbaren Apps sehen -->
     <queries>
         <intent>
