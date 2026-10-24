@@ -10,8 +10,19 @@ android {
         applicationId 'ch.lumen.tvlauncher'
         minSdk 21
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode 2
+        versionName '1.1'
+    }
+
+    // Fester Schlüssel: Updates lassen sich über die alte Version installieren,
+    // Einstellungen und Berechtigungen bleiben erhalten. Bewusst im Repo, nur für den Eigengebrauch.
+    signingConfigs {
+        lumen {
+            storeFile file('lumen-release.jks')
+            storePassword 'lumentv'
+            keyAlias 'lumen'
+            keyPassword 'lumentv'
+        }
     }
 
     buildTypes {
@@ -19,8 +30,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Für den Eigengebrauch mit dem Debug-Schlüssel signiert, damit die APK direkt installierbar ist.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.lumen
         }
     }
 
