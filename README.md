@@ -32,6 +32,8 @@ Pfeil nach oben aus der Favoritenleiste wählt eine Karte, OK blendet sie aus, l
 
 Der Launcher empfängt auf Port 7676. Alternativ geht auch JSON per POST: `{"title": "...", "message": "..."}`.
 
+**Absicherung:** Nur die Absender in `ALLOWED_SENDERS` (`NotifyServer.java`, aktuell die IP von Home Assistant) dürfen Nachrichten schicken; alle anderen Geräte bekommen `403`. Ändert sich die IP von Home Assistant, dort anpassen – am besten die IP im Router fest reservieren.
+
 **Auch über anderen Apps einblenden** (z. B. während Netflix): Der Launcher braucht dafür die Berechtigung „Über anderen Apps einblenden“. Auf den meisten TVs gibt es dafür kein Menü, daher einmalig per ADB:
 ```
 adb shell appops set ch.lumen.tvlauncher SYSTEM_ALERT_WINDOW allow

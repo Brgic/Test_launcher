@@ -38,6 +38,11 @@ import java.util.regex.Pattern;
  */
 final class NotifyServer implements Runnable {
     static final int PORT = 7676;
+    /**
+     * Nur diese Absender dürfen Benachrichtigungen schicken (Home Assistant).
+     * Leer lassen = alle Geräte im Heimnetz erlaubt.
+     */
+    static final String[] ALLOWED_SENDERS = {"192.168.1.54"};
 
     private static final Charset ISO = Charset.forName("ISO-8859-1");
     private static final Charset UTF8 = Charset.forName("UTF-8");
@@ -82,6 +87,10 @@ final class NotifyServer implements Runnable {
     private void handle(Socket s) {
         try (Socket sock = s) {
             sock.setSoTimeout(15000);
+            if (!isAllowed(sock.getInetAddress())) {
+                respond(sock.getOutputStream(), 403, "Forbidden");
+                return;
+            }
             InputStream in = new BufferedInputStream(sock.getInputStream());
             String requestLine = readLine(in);
             if (requestLine == null || requestLine.isEmpty()) return;
@@ -98,14 +107,24 @@ final class NotifyServer implements Runnable {
                 byte[] body = readBody(in, headers);
                 if (body != null) handlePost(headers.get("content-type"), body);
             }
-            respond(sock.getOutputStream());
+            respond(sock.getOutputStream(), 200, "OK");
         } catch (Throwable ignored) {
         }
     }
 
-    private static void respond(OutputStream out) throws IOException {
-        byte[] body = "OK".getBytes(ISO);
-        String head = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + body.length
+    /** Erlaubt sind das Gerät selbst und die eingetragenen Absender. */
+    static boolean isAllowed(InetAddress a) {
+        if (a == null) return false;
+        if (a.isLoopbackAddress() || ALLOWED_SENDERS.length == 0) return true;
+        String ip = a.getHostAddress();
+        if (ip.startsWith("::ffff:")) ip = ip.substring(7);   // IPv4 über IPv6-Socket
+        for (String allowed : ALLOWED_SENDERS) if (allowed.equals(ip)) return true;
+        return false;
+    }
+
+    private static void respond(OutputStream out, int code, String text) throws IOException {
+        byte[] body = text.getBytes(ISO);
+        String head = "HTTP/1.1 " + code + " " + text + "\r\nContent-Type: text/plain\r\nContent-Length: " + body.length
                 + "\r\nConnection: close\r\n\r\n";
         out.write(head.getBytes(ISO));
         out.write(body);
