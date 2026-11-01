@@ -85,8 +85,8 @@ final class AppsPanel extends Overlay implements TileView.Host {
         content.addView(grid, glp);
     }
 
-    void setTileStyleLabel(boolean calm) {
-        stylePill.setText(calm ? "Kacheln: Dezent" : "Kacheln: Farbig");
+    void setTileStyleLabel(int style) {
+        stylePill.setText("Kacheln: " + AppRepo.STYLE_NAMES[style]);
     }
 
     void setApps(List<AppEntry> apps) {
@@ -104,7 +104,7 @@ final class AppsPanel extends Overlay implements TileView.Host {
                 row.setPadding(d.side, 0, d.side, 0);
                 LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, d.tileH);
-                if (i > 0) rp.topMargin = d.gapV;
+                if (i > 0) rp.topMargin = apps.get(i).tile == null ? d.gap : d.gapV;   // Text-Kacheln brauchen keinen Platz für den Namen darunter
                 grid.addView(row, rp);
             }
             AppEntry e = apps.get(i);

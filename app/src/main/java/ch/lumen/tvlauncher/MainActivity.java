@@ -108,11 +108,10 @@ public final class MainActivity extends Activity
         row.setPadding(d.side, Math.round(d.tileH * 0.2f), d.side, Math.round(d.tileH * 0.5f));
 
         allTile = new AppEntry(AppEntry.ALL_KEY, getString(R.string.all_apps), null, false);
-        Images.renderGlass(allTile, getResources().getDrawable(R.drawable.ic_apps, null),
-                d.renderW, d.renderH, d.renderR);
+        renderAllTile();
 
         apps = new AppsPanel(this, d, this);
-        apps.setTileStyleLabel(repo.isCalm());
+        apps.setTileStyleLabel(repo.getStyle());
         wp = new WallpaperPanel(this, d, io, ui, this);
         root.addView(apps, new FrameLayout.LayoutParams(-1, -1));
         root.addView(wp, new FrameLayout.LayoutParams(-1, -1));
@@ -411,10 +410,21 @@ public final class MainActivity extends Activity
 
     @Override
     public void onToggleTileStyle() {
-        boolean calm = !repo.isCalm();
-        repo.setCalm(calm);
-        apps.setTileStyleLabel(calm);
+        int style = (repo.getStyle() + 1) % AppRepo.STYLE_NAMES.length;
+        repo.setStyle(style);
+        apps.setTileStyleLabel(style);
+        renderAllTile();
         reload();
+    }
+
+    /** „Alle Apps“: im Text-Stil nur Text, sonst Glaskachel mit Symbol. */
+    private void renderAllTile() {
+        if (repo.getStyle() == AppRepo.STYLE_TEXT) {
+            allTile.tile = null;
+        } else {
+            Images.renderGlass(allTile, getResources().getDrawable(R.drawable.ic_apps, null),
+                    d.renderW, d.renderH, d.renderR);
+        }
     }
 
     // ------------------------------------------------------------ Hintergrund
