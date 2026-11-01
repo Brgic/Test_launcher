@@ -108,6 +108,7 @@ public final class MainActivity extends Activity
         row.setPadding(d.side, Math.round(d.tileH * 0.2f), d.side, Math.round(d.tileH * 0.5f));
 
         allTile = new AppEntry(AppEntry.ALL_KEY, getString(R.string.all_apps), null, false);
+        repo.applyCustomName(allTile);
         renderAllTile();
 
         apps = new AppsPanel(this, d, this);
@@ -307,8 +308,8 @@ public final class MainActivity extends Activity
     public void onTileLongClick(TileView t) {
         if (moving != null) return;
         if (t.entry == allTile) {
-            menu(allTile.label, new String[]{getString(R.string.change_wallpaper)},
-                    new Runnable[]{this::openWallpaper});
+            menu(allTile.label, new String[]{getString(R.string.change_wallpaper), getString(R.string.rename)},
+                    new Runnable[]{this::openWallpaper, () -> renameDialog(allTile)});
         } else {
             favMenu(t.entry);
         }
@@ -333,6 +334,8 @@ public final class MainActivity extends Activity
         a.add(() -> startMove(e));
         l.add(getString(R.string.fav_remove));
         a.add(() -> toggleFavorite(e));
+        l.add(getString(R.string.rename));
+        a.add(() -> renameDialog(e));
         addAppActions(e, l, a);
         menu(e.label, l.toArray(new String[0]), a.toArray(new Runnable[0]));
     }
@@ -343,8 +346,50 @@ public final class MainActivity extends Activity
         List<Runnable> a = new ArrayList<>();
         l.add(getString(favs.contains(e) ? R.string.fav_remove : R.string.fav_add));
         a.add(() -> toggleFavorite(e));
+        l.add(getString(R.string.rename));
+        a.add(() -> renameDialog(e));
         addAppActions(e, l, a);
         menu(e.label, l.toArray(new String[0]), a.toArray(new Runnable[0]));
+    }
+
+    /** Kachel umbenennen; „Original“ stellt den Namen der App wieder her. */
+    private void renameDialog(final AppEntry e) {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setText(e.label);
+        input.setSelectAllOnFocus(true);
+        input.setSingleLine(true);
+        input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        int pad = Math.round(d.sh * 0.03f);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(input);
+        final AlertDialog dlg = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(getString(R.string.rename) + " – " + e.originalLabel)
+                .setView(box)
+                .setPositiveButton(R.string.save, (x, w) -> applyRename(e, input.getText().toString()))
+                .setNeutralButton(R.string.original_name, (x, w) -> applyRename(e, null))
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        input.setOnEditorActionListener((v, actionId, ev) -> {
+            applyRename(e, input.getText().toString());
+            dlg.dismiss();
+            return true;
+        });
+        dlg.show();
+        input.requestFocus();
+    }
+
+    private void applyRename(AppEntry e, String name) {
+        if (name != null && name.trim().equals(e.originalLabel)) name = null;
+        repo.setCustomName(e.key, name);
+        focusKey = e.key;
+        if (e == allTile) {
+            repo.applyCustomName(allTile);
+            rebuildRow();
+            focusRow(focusKey, 0);
+        } else {
+            reload();   // neu laden, damit Name und Sortierung überall stimmen
+        }
     }
 
     private void addAppActions(final AppEntry e, List<String> l, List<Runnable> a) {

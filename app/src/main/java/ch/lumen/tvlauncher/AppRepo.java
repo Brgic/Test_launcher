@@ -22,6 +22,7 @@ import java.util.List;
 final class AppRepo {
     private static final String K_FAVS = "favorites";
     private static final String K_STYLE = "tile_style";
+    private static final String K_NAME = "name_";   // + Schlüssel der Kachel
 
     static final int STYLE_TEXT = 0;    // nur App-Name auf Glas (Standard)
     static final int STYLE_CALM = 1;    // Glas mit gedämpftem Icon
@@ -34,6 +35,22 @@ final class AppRepo {
     AppRepo(Context c) {
         ctx = c.getApplicationContext();
         sp = ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE);
+    }
+
+    /** Eigener Name der Kachel oder null. */
+    String getCustomName(String key) {
+        return sp.getString(K_NAME + key, null);
+    }
+
+    /** null oder leer = wieder den Original-Namen verwenden. */
+    void setCustomName(String key, String name) {
+        if (name == null || name.trim().isEmpty()) sp.edit().remove(K_NAME + key).apply();
+        else sp.edit().putString(K_NAME + key, name.trim()).apply();
+    }
+
+    void applyCustomName(AppEntry e) {
+        String n = getCustomName(e.key);
+        e.label = n != null ? n : e.originalLabel;
     }
 
     int getStyle() {
@@ -54,6 +71,7 @@ final class AppRepo {
         collect(pm, Intent.CATEGORY_LAUNCHER, false, map, d, style);
 
         List<AppEntry> apps = new ArrayList<>(map.values());
+        for (AppEntry e : apps) applyCustomName(e);
         final Collator col = Collator.getInstance();
         Collections.sort(apps, new Comparator<AppEntry>() {
             @Override
@@ -68,6 +86,7 @@ final class AppRepo {
             Images.renderGlass(settings, ctx.getResources().getDrawable(R.drawable.ic_settings, null),
                     d.renderW, d.renderH, d.renderR);
         }
+        applyCustomName(settings);
         apps.add(settings);
         return apps;
     }

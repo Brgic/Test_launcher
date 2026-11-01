@@ -105,19 +105,18 @@ final class TileView extends FrameLayout {
 
         GradientDrawable off = new GradientDrawable();
         off.setCornerRadius(d.radius);
-        off.setColor(0x2EFFFFFF);
-        off.setStroke(Math.max(1, Math.round(d.tileH * 0.008f)), 0x26FFFFFF);
+        off.setColor(0x66000000);   // dunkles Glas: weisse Schrift auf jedem Hintergrund lesbar
+        off.setStroke(Math.max(1, Math.round(d.tileH * 0.008f)), 0x33FFFFFF);
         GradientDrawable on = new GradientDrawable();
         on.setCornerRadius(d.radius);
-        on.setColor(0xF2FFFFFF);
+        on.setColor(0xFFFFFFFF);
         StateListDrawable bg = new StateListDrawable();
         bg.addState(new int[]{android.R.attr.state_focused}, on);
         bg.addState(new int[]{}, off);
         t.setBackground(bg);
         t.setTextColor(new ColorStateList(
                 new int[][]{{android.R.attr.state_focused}, {}},
-                new int[]{0xFF111111, 0xFFFFFFFF}));
-        t.setShadowLayer(d.tileH * 0.04f, 0, 0, 0x00000000);
+                new int[]{0xFF000000, 0xFFFFFFFF}));
         t.setDuplicateParentStateEnabled(true);   // Fokus der Kachel färbt Hintergrund und Schrift
         return t;
     }
@@ -143,6 +142,11 @@ final class TileView extends FrameLayout {
                 .setDuration(focused ? 200 : 120)
                 .setInterpolator(EASE)
                 .start();
+        if (textOnly) {
+            // gewählte Kachel: fette, schwarze Schrift
+            ((TextView) card).setTypeface(Typeface.create(focused ? "sans-serif" : "sans-serif-medium",
+                    focused ? Typeface.BOLD : Typeface.NORMAL));
+        }
         if (focused) host.onTileFocused(this);
     }
 

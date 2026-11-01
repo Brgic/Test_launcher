@@ -7,8 +7,9 @@ Schlank (keine Bibliotheken, nur Android-Framework, APK ca. 50 KB) und auf flüs
 - **Alle Apps** als letzte Kachel der Leiste (oder Pfeil nach unten): separate Liste mit Milchglas-Effekt
 - **Kachelstil:** „Nur Text“ (App-Name auf Glas, bei Fokus weiss; Standard), „Dezent“ (Glaskacheln mit gedämpften Icons) oder „Farbig“ (offizielle TV-Banner). Umschalten oben in der App-Liste
 - **Hintergrund:** 7 Farbverlauf-Vorlagen oder eigene Bilder vom Gerät. Öffnen über „Hintergrund“ in der App-Liste oder lange OK auf „Alle Apps“
-- **Lange OK** (oder Menü-Taste) auf einer Favoriten-Kachel: Verschieben, Aus Favoriten entfernen, App-Info, Deinstallieren
-- **Lange OK** in der App-Liste: Zu Favoriten hinzufügen/entfernen, App-Info, Deinstallieren
+- **Lange OK** (oder Menü-Taste) auf einer Favoriten-Kachel: Verschieben, Aus Favoriten entfernen, Umbenennen, App-Info, Deinstallieren
+- **Lange OK** in der App-Liste: Zu Favoriten hinzufügen/entfernen, Umbenennen, App-Info, Deinstallieren
+- **Umbenennen:** jede Kachel (auch „Einstellungen“ und „Alle Apps“) bekommt einen eigenen Namen; „Original“ stellt den App-Namen wieder her
 - Neu installierte oder entfernte Apps erscheinen bzw. verschwinden automatisch
 
 ## Benachrichtigungen aus Home Assistant

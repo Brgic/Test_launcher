@@ -26,4 +26,7 @@
     <string name="notifications">Benachrichtigungen</string>
     <string name="clear_all">Alle löschen</string>
     <string name="send_test">Test senden</string>
+    <string name="rename">Umbenennen</string>
+    <string name="save">Speichern</string>
+    <string name="original_name">Original</string>
 </resources>
