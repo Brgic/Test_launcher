@@ -43,6 +43,12 @@ Danach erscheint jede neue Nachricht 8 Sekunden lang oben links, egal welche App
 
 Der Empfänger startet automatisch beim Hochfahren des TVs und läuft als stiller Hintergrunddienst – auch wenn der TV direkt ins Live-TV startet. Von Hand (per ADB) starten: `am broadcast -n ch.lumen.tvlauncher/.BootReceiver`
 
+## Knöpfe für Szenen und Skripte
+Über der Favoritenleiste erscheinen Textknöpfe für Home-Assistant-Szenen und -Skripte (Pfeil nach oben aus der Favoritenleiste, OK löst aus).
+- Welche Knöpfe erscheinen, bestimmt das Label **„Lumen TV“** in Home Assistant (Szenen und Skripte).
+- Home Assistant schickt die Liste über den Benachrichtigungs-Empfänger (Titel `lumen:buttons`) – Automation „Lumen TV: Knöpfe an TV senden“.
+- Ein Knopfdruck ruft einen geheimen, nur lokal erreichbaren Webhook in Home Assistant auf – Automation „Lumen TV: Knopf ausführen“. Es wird nur ausgeführt, was das Label trägt. Kein Token auf dem TV nötig.
+
 ## Eigenes Hintergrundbild auf den TV bringen
 Bild z. B. mit „Send Files to TV“ oder per USB-Stick auf den Fernseher kopieren. Danach in „Hintergrund“ → „Bilder vom Gerät anzeigen“ (einmalig Zugriff erlauben) oder „Datei auswählen…“.
 Das Bild wird auf Bildschirmgröße zugeschnitten und im Launcher gespeichert. Das Original kannst du danach löschen.

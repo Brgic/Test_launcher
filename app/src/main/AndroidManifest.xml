@@ -34,6 +34,7 @@
 
     <application
         android:name=".LumenApp"
+        android:usesCleartextTraffic="true"
         android:allowBackup="false"
         android:banner="@drawable/banner"
         android:icon="@drawable/ic_launcher"

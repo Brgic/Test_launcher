@@ -34,7 +34,7 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity
         implements TileView.Host, AppsPanel.Callback, WallpaperPanel.Callback,
-        NotificationCenter.Listener {
+        NotificationCenter.Listener, HaButtons.Listener {
 
     private static final int REQ_PERM = 1;
     private static final int REQ_PICK = 2;
@@ -51,6 +51,7 @@ public final class MainActivity extends Activity
 
     private LinearLayout row, notifBox;
     private TvHScrollView hscroll;
+    private LinearLayout btnRow;   // Knöpfe für Home-Assistant-Szenen
     private ImageView wpA, wpB;
     private boolean aFront = true;
     private AppsPanel apps;
@@ -107,6 +108,16 @@ public final class MainActivity extends Activity
         hp.bottomMargin = Math.round(d.sh * 0.06f);
         row.setPadding(d.side, Math.round(d.tileH * 0.2f), d.side, Math.round(d.tileH * 0.5f));
 
+        // Knopfreihe direkt über der Favoritenleiste
+        btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setClipChildren(false);
+        btnRow.setClipToPadding(false);
+        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-2, -2, android.view.Gravity.BOTTOM | android.view.Gravity.START);
+        bp.leftMargin = d.side;
+        bp.bottomMargin = Math.round(d.sh * 0.06f + d.tileH * 1.75f);
+        root.addView(btnRow, bp);
+
         allTile = new AppEntry(AppEntry.ALL_KEY, getString(R.string.all_apps), null, false);
         repo.applyCustomName(allTile);
         renderAllTile();
@@ -130,6 +141,8 @@ public final class MainActivity extends Activity
         reload();
         NotificationCenter.setListener(this);
         renderNotifs(null);
+        HaButtons.listener = this;
+        onButtonsChanged();
     }
 
     @Override
@@ -181,6 +194,7 @@ public final class MainActivity extends Activity
         }
         NotificationCenter.setListener(null);
         NotificationCenter.setLauncherVisible(false);
+        if (HaButtons.listener == this) HaButtons.listener = null;
         io.shutdownNow();
         ui.removeCallbacksAndMessages(null);
     }
@@ -613,6 +627,41 @@ public final class MainActivity extends Activity
                 .show();
     }
 
+    // ------------------------------------------------------------ Home-Assistant-Knöpfe
+
+    @Override
+    public void onButtonsChanged() {
+        View f = getCurrentFocus();
+        boolean hadFocus = f != null && f.getParent() == btnRow;
+        btnRow.removeAllViews();
+        int gap = Math.round(d.sh * 0.015f);
+        for (final HaButtons.Btn b : HaButtons.load(this)) {
+            final TextView pill = UiKit.pill(this, b.name, d);
+            pill.setOnClickListener(v -> pressButton(pill, b));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+            if (btnRow.getChildCount() > 0) lp.leftMargin = gap;
+            btnRow.addView(pill, lp);
+        }
+        btnRow.setVisibility(btnRow.getChildCount() > 0 ? View.VISIBLE : View.GONE);
+        if (hadFocus) {
+            if (btnRow.getChildCount() > 0) btnRow.getChildAt(0).requestFocus();
+            else focusRow(focusKey, 0);
+        }
+    }
+
+    /** Knopf drücken: kurz „…“, dann „✓“ oder Hinweis, wenn Home Assistant nicht antwortet. */
+    private void pressButton(final TextView pill, final HaButtons.Btn b) {
+        pill.setText(b.name + " …");
+        io.execute(() -> {
+            final boolean ok = HaButtons.trigger(this, b);
+            ui.post(() -> {
+                pill.setText(ok ? "✓ " + b.name : b.name);
+                if (!ok) Toast.makeText(this, R.string.ha_unreachable, Toast.LENGTH_SHORT).show();
+                ui.postDelayed(() -> pill.setText(b.name), 1500);
+            });
+        });
+    }
+
     // ------------------------------------------------------------ Fokus & Tasten
 
     /** Verhindert, dass der Fokus aus einer offenen Ebene in die darunterliegende springt. */
@@ -621,6 +670,7 @@ public final class MainActivity extends Activity
         int home = anyOpen ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS;
         hscroll.setDescendantFocusability(home);
         notifBox.setDescendantFocusability(home);
+        btnRow.setDescendantFocusability(home);
         apps.setDescendantFocusability(wp.isOpen() ? ViewGroup.FOCUS_BLOCK_DESCENDANTS : ViewGroup.FOCUS_AFTER_DESCENDANTS);
     }
 

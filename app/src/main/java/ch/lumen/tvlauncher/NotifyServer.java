@@ -54,12 +54,16 @@ final class NotifyServer implements Runnable {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService pool = Executors.newFixedThreadPool(2);
 
-    private NotifyServer() {}
+    private final Context app;
+
+    private NotifyServer(Context c) {
+        app = c.getApplicationContext();
+    }
 
     static synchronized void start(Context c) {
         if (started) return;
         started = true;
-        Thread t = new Thread(new NotifyServer(), "lumen-notify");
+        Thread t = new Thread(new NotifyServer(c), "lumen-notify");
         t.setDaemon(true);
         t.start();
     }
@@ -105,7 +109,7 @@ final class NotifyServer implements Runnable {
 
             if ("POST".equals(method)) {
                 byte[] body = readBody(in, headers);
-                if (body != null) handlePost(headers.get("content-type"), body);
+                if (body != null) handlePost(headers.get("content-type"), body, ipOf(sock.getInetAddress()));
             }
             respond(sock.getOutputStream(), 200, "OK");
         } catch (Throwable ignored) {
@@ -131,7 +135,12 @@ final class NotifyServer implements Runnable {
         out.flush();
     }
 
-    private void handlePost(String contentType, byte[] body) throws Exception {
+    private static String ipOf(InetAddress a) {
+        String ip = a == null ? "" : a.getHostAddress();
+        return ip.startsWith("::ffff:") ? ip.substring(7) : ip;
+    }
+
+    private void handlePost(String contentType, byte[] body, String senderIp) throws Exception {
         String ct = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
         String title = null, msg = null;
         byte[] image = null;
@@ -156,6 +165,13 @@ final class NotifyServer implements Runnable {
         }
 
         if ((title == null || title.isEmpty()) && (msg == null || msg.isEmpty())) return;
+        // Knopfliste aus Home Assistant: speichern statt anzeigen
+        if (HaButtons.handle(app, title, msg, senderIp)) {
+            ui.post(() -> {
+                if (HaButtons.listener != null) HaButtons.listener.onButtonsChanged();
+            });
+            return;
+        }
         final Notif n = new Notif(title, msg, decodeImage(image));
         ui.post(() -> NotificationCenter.add(n));
     }

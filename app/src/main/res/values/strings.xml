@@ -29,4 +29,5 @@
     <string name="rename">Umbenennen</string>
     <string name="save">Speichern</string>
     <string name="original_name">Original</string>
+    <string name="ha_unreachable">Home Assistant ist nicht erreichbar</string>
 </resources>
