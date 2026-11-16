@@ -3,7 +3,9 @@
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF000000">
+    android:background="#FF000000"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <!-- Hintergrundbild (zwei Ebenen für weiches Überblenden) -->
     <ImageView
